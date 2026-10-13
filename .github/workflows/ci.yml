@@ -59,3 +59,19 @@ jobs:
               echo "unexpected file in $f"; exit 1
             fi
           done
+
+  interop-socketio-2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -e ".[dev]"
+      - run: npm install --no-audit --no-fund
+        working-directory: tests/interop
+      - run: pytest -v tests/test_interop_sio2.py

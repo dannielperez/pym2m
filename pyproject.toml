@@ -65,7 +65,7 @@ path = "src/pym2m/_version.py"
 packages = ["src/pym2m"]
 
 [tool.hatch.build.targets.sdist]
-exclude = [".git", ".github", ".DS_Store", ".coverage", ".pytest_cache", ".ruff_cache", ".mypy_cache", "*.pdf", "local"]
+exclude = [".git", ".github", "tests/interop/node_modules", ".DS_Store", ".coverage", ".pytest_cache", ".ruff_cache", ".mypy_cache", "*.pdf", "local"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

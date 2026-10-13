@@ -29,6 +29,13 @@ invented. No customer data, credentials or private hostnames are included.
 | Login / scoped token use (`Authenticate` header) | public docs | yes | **no** |
 | API root / `live_url` | public docs | yes | **no** |
 | Vehicles, devices, latest location (`select`) | public docs | yes | **no** |
+| Rawdata history | public docs | yes | **no** |
+| Trips (`/trips`) | public docs (response shape varies by `fields`) | yes | **no** |
+| Counters | public docs | yes | **no** |
+| Geofences, triggers, alerts (read) | public docs | yes | **no** |
+| Reverse geocoding (`/reversegeo`) | public docs | yes | **no** |
+| Realtime socket (Socket.IO 2.x / Engine.IO 3) | public docs + Socket.IO 2.x wire protocol | yes, including a real `socket.io@2.5.0` server | **no** |
+| Forwarder payload parsing (`json_fwd`) | public docs | yes | **no** |
 | Remote commands / any write | intentionally not implemented | n/a | n/a |
 
 ## Publication status

@@ -22,13 +22,22 @@ from pym2m.exceptions import (
     UnsafeURLError,
     UnsupportedResponseError,
 )
+from pym2m.forwarder import ForwarderBatch, RejectedItem, parse_forwarder_body
 from pym2m.models import (
+    Alert,
     ApiInfo,
     ConnectionState,
+    CounterTotals,
     Device,
+    EventSource,
+    Geofence,
     GpsFix,
     LatestLocation,
     PagedResult,
+    ReverseGeocode,
+    TelemetryEvent,
+    Trigger,
+    Trip,
     Vehicle,
     VehicleInfo,
 )
@@ -38,6 +47,17 @@ from pym2m.transport import RetryPolicy
 from pym2m.urls import validate_live_url
 
 __all__ = [
+    "parse_forwarder_body",
+    "Trip",
+    "Trigger",
+    "TelemetryEvent",
+    "ReverseGeocode",
+    "RejectedItem",
+    "Geofence",
+    "ForwarderBatch",
+    "EventSource",
+    "CounterTotals",
+    "Alert",
     "APIError",
     "ApiInfo",
     "AuthenticationError",
