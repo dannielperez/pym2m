@@ -1,0 +1,87 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pym2m"
+dynamic = ["version"]
+description = "Typed, read-only Python client for Pegasus-Gateway-based fleet tracking platforms (such as M2M Global): vehicles, latest positions, rawdata history, trips, counters, geofences, live events and forwarder payloads."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [{ name = "Daniel Perez" }]
+keywords = [
+    "gps",
+    "fleet",
+    "telematics",
+    "tracking",
+    "pegasus",
+    "m2m",
+    "iot",
+    "socket.io",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Typing :: Typed",
+]
+dependencies = [
+    "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+live = [
+    "websockets>=13,<17",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "build>=1.0",
+    "twine>=5.0",
+    "websockets>=13,<17",
+]
+
+[project.urls]
+Homepage = "https://github.com/dannielperez/pym2m"
+Repository = "https://github.com/dannielperez/pym2m"
+Documentation = "https://github.com/dannielperez/pym2m#readme"
+Changelog = "https://github.com/dannielperez/pym2m/blob/main/CHANGELOG.md"
+Issues = "https://github.com/dannielperez/pym2m/issues"
+
+[tool.hatch.version]
+path = "src/pym2m/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pym2m"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [".git", ".github", ".DS_Store", ".coverage", ".pytest_cache", ".ruff_cache", ".mypy_cache", "*.pdf", "local"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/pym2m"]
