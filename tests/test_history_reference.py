@@ -225,3 +225,38 @@ def test_reverse_geocode(api: FakeAPI, make_client) -> None:
     assert api.requests[0].url.params["lat"] == "18.465500"
     with pytest.raises(ValueError):
         client.reverse_geocode(0, 0)
+
+
+def test_list_groups(api: FakeAPI, make_client) -> None:
+    api.add(
+        "GET",
+        "/v2/api/groups",
+        json_response(
+            200,
+            {
+                "data": [
+                    {
+                        "id": 10,
+                        "name": "Patrol fleet",
+                        "company_name": "Example Co",
+                        "vehicles": [7, 8],
+                    },
+                    {"id": 11, "name": "Spare"},
+                ],
+                "pages": 1,
+                "total": 2,
+            },
+        ),
+    )
+    groups = make_client().list_groups().items
+    assert [g.id for g in groups] == [10, 11]
+    assert groups[0].vehicle_ids == (7, 8)
+    assert groups[1].vehicle_ids == ()  # absent member list is not "empty"
+    assert groups[1].company_name is None
+
+
+def test_group_without_id_raises() -> None:
+    from pym2m import Group
+
+    with pytest.raises(ResponseFormatError):
+        Group.from_api({"name": "x"})

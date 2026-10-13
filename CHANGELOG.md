@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Added
+- `list_groups()` and the `Group` model for scoped-token group discovery.
+
+## 0.1.0 — 2026-10-13
+
+### Added
 - Read-only REST client (`M2MClient`): API root, vehicles, devices, latest locations.
 - Password login (domain or central auth) and static application-token credentials;
   token sent only via the `Authenticate` header; renewal on 401 and after idle time;

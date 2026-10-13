@@ -512,6 +512,35 @@ class Geofence:
 
 
 @dataclass(frozen=True, slots=True)
+class Group:
+    """A visibility group. Groups decide which vehicles a user or token can see.
+
+    ``vehicle_ids`` is populated only when the platform includes member ids in the
+    payload; an empty tuple does not mean the group is empty.
+    """
+
+    id: int
+    name: str | None
+    company_name: str | None
+    vehicle_ids: tuple[int, ...]
+    raw: JSON = field(repr=False)
+
+    @classmethod
+    def from_api(cls, data: Any) -> Group:
+        item = _mapping(data)
+        gid = to_int(item.get("id"))
+        if gid is None:
+            raise ResponseFormatError("group payload has no integer 'id'")
+        return cls(
+            id=gid,
+            name=_str(item.get("name")),
+            company_name=_str(item.get("company_name")),
+            vehicle_ids=_int_list(item.get("vehicles")),
+            raw=dict(item),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class Trigger:
     """A configured automation rule. Rule structure stays in ``raw``."""
 
