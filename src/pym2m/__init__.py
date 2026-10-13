@@ -32,6 +32,7 @@ from pym2m.models import (
     EventSource,
     Geofence,
     GpsFix,
+    Group,
     LatestLocation,
     PagedResult,
     ReverseGeocode,
@@ -47,6 +48,7 @@ from pym2m.transport import RetryPolicy
 from pym2m.urls import validate_live_url
 
 __all__ = [
+    "Group",
     "parse_forwarder_body",
     "Trip",
     "Trigger",

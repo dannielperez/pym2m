@@ -18,6 +18,7 @@ from pym2m.models import (
     Device,
     EventSource,
     Geofence,
+    Group,
     PagedResult,
     ReverseGeocode,
     TelemetryEvent,
@@ -289,6 +290,10 @@ class M2MClient:
             params["groups"] = id_list(groups, name="groups")
         params.update(search_params(search))
         return self._paginate("geofences", params, Geofence.from_api, page_size, MAX_PAGE_SIZE)
+
+    def list_groups(self, *, page_size: int = DEFAULT_PAGE_SIZE) -> PagedResult[Group]:
+        """Groups visible to the token (a scoped token sees only its groups)."""
+        return self._paginate("groups", {}, Group.from_api, page_size, MAX_PAGE_SIZE)
 
     def list_triggers(self, *, page_size: int = DEFAULT_PAGE_SIZE) -> PagedResult[Trigger]:
         return self._paginate("triggers", {}, Trigger.from_api, page_size, MAX_PAGE_SIZE)

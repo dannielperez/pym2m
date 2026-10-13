@@ -40,7 +40,8 @@ invented. No customer data, credentials or private hostnames are included.
 
 ## Publication status
 
-The repository is **private** until the owner confirms that publishing a client for
-this API under Apache-2.0 is acceptable to the platform vendor and the reseller.
+Public since 2026-10-13, on the owner's authorization. Before the repository was
+made public, its full git history was scanned: it contains no vendor documents,
+no confidential text, no credentials and no customer data.
 The Apache-2.0 license covers this code only. It grants nothing over any vendor
 documentation, trademarks or services.
