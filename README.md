@@ -4,6 +4,11 @@ A typed, **read-only** Python client for fleet-tracking platforms built on the
 Pegasus Gateway API, such as M2M Global deployments.
 
 - Read vehicles, tracking devices, latest positions and connection state.
+- Historical telemetry (rawdata), trips, counters, geofences, triggers, alerts and
+  reverse geocoding, over bounded time windows.
+- A realtime session (`pym2m[live]`) that reconstructs compact deltas, deduplicates,
+  orders, reconnects, re-subscribes and tells you which window to backfill.
+- A parser for forwarder (HTTP push) payloads.
 - Explicit timeouts, TLS verification, bounded retries and a 429 policy that
   backs off rather than hammering the API.
 - Credentials are wrapped in `Secret` and redacted from every error and diagnostic.
@@ -62,11 +67,90 @@ from pym2m import PasswordCredentials
 creds = PasswordCredentials("integration@example.com", Secret(os.environ["TRACKING_PASSWORD"]))
 ```
 
+## History
+
+```python
+from datetime import UTC, datetime, timedelta
+
+end = datetime.now(UTC)
+start = end - timedelta(hours=2)
+events = client.rawdata([vehicle_id], start, end)   # TelemetryEvent, oldest first
+trips = client.trips([vehicle_id], start, end)      # meters / seconds / km/h
+totals = client.counters([vehicle_id], start, end)  # e.g. totals[0].values["dev_dist"]
+```
+
+Windows are capped by `max_history_window` (24 hours by default, 31 days at most)
+and history queries take at most 50 entities, because these endpoints are rate
+limited.
+
+## Realtime
+
+```bash
+pip install "pym2m[live] @ git+https://github.com/dannielperez/pym2m@<tag>"
+```
+
+```python
+import threading
+
+from pym2m.live import LiveSession, recover_with_rest
+
+info = client.api_info()
+stop = threading.Event()
+
+def on_update(update):          # called on the session thread: keep it quick
+    queue.put(update)
+
+def on_recovery_needed(request):
+    # Backfill what may have been missed while disconnected.
+    for event in recover_with_rest(client, request, session.cache):
+        queue.put(event)
+
+session = LiveSession(
+    info.live_url,                              # validated against an allow-list
+    site_url="https://tracking.example.com",
+    token=lambda: creds.token,
+    on_update=on_update,
+    on_recovery_needed=on_recovery_needed,
+)
+session.subscribe([101, 102])                   # at most 250 vehicles
+session.run(stop)                               # blocks; reconnects with backoff
+```
+
+The realtime server needs a Socket.IO **2.x** client over WebSocket. Socket.IO 2.x
+speaks Engine.IO protocol 3, which current python-socketio releases do not
+support. pym2m ships a small Engine.IO 3 codec over the maintained `websockets`
+library. CI runs it against a real `socket.io@2.5.0` server with synthetic data
+(`tests/test_interop_sio2.py`).
+
+**Compact merge semantics.** Objects merge recursively, while arrays and scalars
+replace. A new event replaces the previous event, and the keys listed in
+`_event_restore` are copied back from the previous event or from
+`device.latest.data`. Falsy values such as `false` and `0` are restored too.
+Repeated payloads are not delivered twice. Older events arrive flagged
+`out_of_order=True` and never overwrite newer state.
+
+## Forwarder payloads
+
+```python
+from pym2m import parse_forwarder_body
+
+batch = parse_forwarder_body(request_body_bytes)   # size- and count-limited
+for event in batch.events:
+    ...
+response_json = batch.ack_body(failed_event_ids)   # [] acknowledges everything
+```
+
+pym2m does not provide an HTTP endpoint and does not authenticate senders. Agree
+on request authentication, source allow-listing and replay protection with the
+platform operator before you expose a receiver.
+
 ## Semantics you should know
 
 | Topic | Behaviour |
 |---|---|
 | Timestamps | Always timezone-aware UTC. `event_time` is when the device generated the event; `received_time` is when the server received it. |
+| Delivery | `TelemetryEvent.dedup_key` is stable across REST, realtime and forwarder delivery of the same event. |
+| Silence | No events means *no information*, not "stopped". `LiveStateCache.stale_vehicles()` reports silent vehicles. |
 | Positions | `GpsFix.is_usable` is false for missing, non-numeric, out-of-range, `(0, 0)`, or device-flagged-invalid fixes. |
 | GPS validity | `device_valid` is the tracker's own flag. A valid fix is **not** proof of precise presence. |
 | Accuracy | `accuracy_m` is always `None`: no accuracy in metres is documented. HDOP/PDOP are kept as unitless hints. |

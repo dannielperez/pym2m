@@ -1,0 +1,8 @@
+{
+  "name": "pym2m-sio2-interop",
+  "private": true,
+  "description": "Synthetic Socket.IO 2.5.0 server used only by tests/test_interop_sio2.py",
+  "dependencies": {
+    "socket.io": "2.5.0"
+  }
+}

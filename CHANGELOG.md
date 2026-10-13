@@ -16,3 +16,13 @@
   that keep the raw payload and never invent GPS accuracy.
 - Safe parameter builders and bounded pagination with explicit truncation.
 - `validate_live_url` for the server-advertised realtime URL.
+- History: `rawdata`, `trips`, `counters`, `vehicle_counters`, with bounded windows
+  and entity counts, explicit units, and unified `TelemetryEvent` normalization.
+- Reference data: `list_geofences`, `list_triggers`, `alerts`, `reverse_geocode`.
+- `pym2m.live`: Engine.IO 3 / Socket.IO 2 codec over `websockets`; `LiveStateCache`
+  with documented compact-merge semantics, dedup, ordering and bounded memory;
+  `LiveSession` with chunked subscriptions (250 max), ping, reconnect with backoff,
+  resubscription, recovery windows and `recover_with_rest`.
+- `parse_forwarder_body` for forwarder pushes, with size limits, per-item
+  rejection and ack bodies.
+- Opt-in interop test against a real `socket.io@2.5.0` server (CI job).
