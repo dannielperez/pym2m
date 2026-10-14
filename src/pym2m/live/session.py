@@ -74,18 +74,35 @@ class WebSocketLike(Protocol):
 def websockets_connect(url: str) -> WebSocketLike:
     """Default connector using the ``websockets`` package (``pip install pym2m[live]``)."""
     try:
+        from websockets.exceptions import ConnectionClosed, InvalidHandshake
         from websockets.sync.client import connect
     except ImportError as exc:  # pragma: no cover - exercised only without the extra
         raise M2MError("install pym2m[live] to use the realtime session") from exc
 
-    ws = connect(url, open_timeout=10, close_timeout=5, max_size=MAX_FRAME_BYTES, compression=None)
+    try:
+        ws = connect(
+            url, open_timeout=10, close_timeout=5, max_size=MAX_FRAME_BYTES, compression=None
+        )
+    except InvalidHandshake as exc:
+        # websockets' handshake errors are not OSErrors; surface them as a lost
+        # connection so the session backs off and retries instead of crashing.
+        raise SocketClosed(f"websocket handshake failed ({type(exc).__name__})") from None
 
     class _Adapter:
+        # ``websockets`` raises ConnectionClosed (not an OSError) when the peer
+        # closes or the connection drops. Map it to SocketClosed, which the
+        # session treats as "reconnect with backoff".
         def send(self, message: str) -> None:
-            ws.send(message)
+            try:
+                ws.send(message)
+            except ConnectionClosed:
+                raise SocketClosed("connection closed by peer") from None
 
         def recv(self, timeout: float) -> str:
-            message = ws.recv(timeout=timeout)
+            try:
+                message = ws.recv(timeout=timeout)
+            except ConnectionClosed:
+                raise SocketClosed("connection closed by peer") from None
             if isinstance(message, bytes):
                 raise LiveProtocolError("unexpected binary frame")
             return message
@@ -132,7 +149,7 @@ class LiveSession:
         chunk_delay_s: float = 0.05,
         handshake_timeout_s: float = 10.0,
         reconnect: ReconnectPolicy | None = None,
-        sleep: Callable[[float], None] = time.sleep,
+        sleep: Callable[[float], None] | None = None,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self.origin = validate_live_url(live_url, allowed_host_suffixes=allowed_host_suffixes)
@@ -150,6 +167,8 @@ class LiveSession:
         self.chunk_delay_s = chunk_delay_s
         self.handshake_timeout_s = handshake_timeout_s
         self.reconnect = reconnect or ReconnectPolicy()
+        # ``None``: reconnect backoff waits on the ``stop`` event, so a stop
+        # request interrupts it instead of sleeping out the delay.
         self._sleep = sleep
         self._monotonic = monotonic
         self._lock = threading.Lock()
@@ -158,6 +177,26 @@ class LiveSession:
         self._ws: WebSocketLike | None = None
         self._ack_seq = 0
         self._disconnected_at: datetime | None = None
+        self._connected = False
+        self._last_inbound_at: datetime | None = None
+
+    # -- connection state (thread-safe reads) ----------------------------------------
+
+    @property
+    def connected(self) -> bool:
+        """True from a successful authentication until the connection is lost.
+
+        A live thread is not a live connection: while the endpoint is down the
+        session keeps reconnecting with backoff and this stays False.
+        """
+        with self._lock:
+            return self._connected
+
+    @property
+    def last_inbound_at(self) -> datetime | None:
+        """When the last frame (pongs included) arrived on a connected socket."""
+        with self._lock:
+            return self._last_inbound_at
 
     # -- subscription management (thread-safe) -------------------------------------
 
@@ -230,6 +269,7 @@ class LiveSession:
             finally:
                 with self._lock:
                     ws, self._ws = self._ws, None
+                    self._connected = False
                 if ws is not None:
                     # Closing an already-dead socket must never mask the real error.
                     with contextlib.suppress(Exception):
@@ -238,7 +278,11 @@ class LiveSession:
             if stop.is_set():
                 return
             attempt += 1
-            self._sleep(self.reconnect.delay(attempt))
+            delay = self.reconnect.delay(attempt)
+            if self._sleep is None:
+                stop.wait(delay)
+            else:
+                self._sleep(delay)
 
     def _run_once(self, stop: threading.Event) -> None:
         ws = self._connect(websocket_url(self.origin))
@@ -246,6 +290,9 @@ class LiveSession:
             self._ws = ws
         info = self._handshake(ws)
         self._authenticate(ws)
+        with self._lock:
+            self._connected = True
+            self._last_inbound_at = datetime.now(UTC)
         with self._lock:
             desired = sorted(self._desired)
             triggers = self._triggers
@@ -316,6 +363,8 @@ class LiveSession:
             except TimeoutError:
                 continue
             last_inbound = self._monotonic()
+            with self._lock:
+                self._last_inbound_at = datetime.now(UTC)
             if len(message) > MAX_FRAME_BYTES:
                 logger.warning("pym2m.live: dropped oversize frame")
                 continue
@@ -375,7 +424,7 @@ class LiveSession:
     def _send_listen(self, ws: WebSocketLike, ids: list[int]) -> None:
         for index, chunk in enumerate(_chunks(ids, self.chunk_size)):
             if index:
-                self._sleep(self.chunk_delay_s)
+                (self._sleep or time.sleep)(self.chunk_delay_s)
             self._ack_seq += 1
             ws.send(
                 emit(
