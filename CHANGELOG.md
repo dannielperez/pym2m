@@ -8,8 +8,14 @@
   handshake failures to `SocketClosed`. Previously they escaped
   `LiveSession.run` instead of triggering reconnect with backoff, because they are
   not `OSError`s. Covered by tests against a real local WebSocket server.
+- `LiveSession.run`: the reconnect backoff now waits on the `stop` event by
+  default, so a stop request interrupts it (previously up to 60 s of
+  `time.sleep`). Passing `sleep=` keeps the old injectable behaviour.
 
 ### Added
+- `LiveSession.connected` (authenticated and not yet lost) and
+  `LiveSession.last_inbound_at`, so supervisors can tell a live connection from
+  a thread that is still retrying an unreachable endpoint.
 - `websockets_connect` is exported from `pym2m.live` (public API), so callers
   that inject or wrap the default connector do not import internal modules.
 

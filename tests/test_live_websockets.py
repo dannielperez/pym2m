@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 
 import pytest
 
@@ -31,7 +32,8 @@ OPEN = "0" + json.dumps({"sid": "s", "upgrades": [], "pingInterval": 25000, "pin
 class LocalServer:
     """Answers the handshake, authenticates, then closes each connection."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, hold: bool = False) -> None:
+        self.hold = hold
         self.connections = 0
         self._server = serve(self._handle, "127.0.0.1", 0, compression=None)
         self.port = self._server.socket.getsockname()[1]
@@ -57,8 +59,11 @@ class LocalServer:
                 conn.send("40/socket")
             elif message.startswith('42/socket,["authenticate"'):
                 conn.send('42/socket,["_authenticated"]')
-                conn.close()
-                return
+                if not self.hold:
+                    conn.close()
+                    return
+            elif message == "2":
+                conn.send("3")
 
 
 def test_peer_close_surfaces_as_socket_closed() -> None:
@@ -89,3 +94,60 @@ def test_session_reconnects_after_the_server_closes() -> None:
         )
         session.run(stop, max_connections=3)
         assert server.connections == 3
+
+
+def test_connected_reflects_authentication_not_thread_liveness() -> None:
+    with LocalServer(hold=True) as server:
+        stop = threading.Event()
+        session = LiveSession(
+            "https://live-1.pegasusgateway.com",
+            site_url="https://tracking.example.test",
+            token=lambda: Secret("synthetic-live-token"),
+            on_update=lambda update: None,
+            connect=lambda _url: websockets_connect(server.url),
+            reconnect=ReconnectPolicy(base_delay_s=0, max_delay_s=0),
+        )
+        assert session.connected is False
+        thread = threading.Thread(target=session.run, args=(stop,), daemon=True)
+        thread.start()
+        deadline = time.monotonic() + 3
+        while not session.connected and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert session.connected is True
+        assert session.last_inbound_at is not None
+        stop.set()
+        thread.join(timeout=3)
+        assert session.connected is False
+
+
+def test_unreachable_endpoint_never_reports_connected() -> None:
+    stop = threading.Event()
+    session = LiveSession(
+        "https://live-1.pegasusgateway.com",
+        site_url="https://tracking.example.test",
+        token=lambda: Secret("synthetic-live-token"),
+        on_update=lambda update: None,
+        connect=lambda _url: websockets_connect("ws://127.0.0.1:9/socket.io/"),
+        reconnect=ReconnectPolicy(base_delay_s=0, max_delay_s=0),
+    )
+    session.run(stop, max_connections=2)
+    assert session.connected is False
+    assert session.last_inbound_at is None
+
+
+def test_stop_interrupts_the_reconnect_backoff() -> None:
+    stop = threading.Event()
+    session = LiveSession(
+        "https://live-1.pegasusgateway.com",
+        site_url="https://tracking.example.test",
+        token=lambda: Secret("synthetic-live-token"),
+        on_update=lambda update: None,
+        connect=lambda _url: websockets_connect("ws://127.0.0.1:9/socket.io/"),
+        reconnect=ReconnectPolicy(base_delay_s=30, max_delay_s=30),
+    )
+    thread = threading.Thread(target=session.run, args=(stop,), daemon=True)
+    thread.start()
+    threading.Event().wait(0.3)
+    stop.set()
+    thread.join(timeout=3)
+    assert not thread.is_alive()
