@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-10-13
 
 ### Added
 - `list_groups()` and the `Group` model for scoped-token group discovery.
