@@ -8,6 +8,7 @@ from pym2m.live.session import (
     TriggerEvent,
     WebSocketLike,
     recover_with_rest,
+    websockets_connect,
 )
 from pym2m.live.state import (
     LiveStateCache,
@@ -32,4 +33,5 @@ __all__ = [
     "WebSocketLike",
     "deep_merge",
     "recover_with_rest",
+    "websockets_connect",
 ]

@@ -9,6 +9,10 @@
   `LiveSession.run` instead of triggering reconnect with backoff, because they are
   not `OSError`s. Covered by tests against a real local WebSocket server.
 
+### Added
+- `websockets_connect` is exported from `pym2m.live` (public API), so callers
+  that inject or wrap the default connector do not import internal modules.
+
 ## 0.2.0 — 2026-10-13
 
 ### Added

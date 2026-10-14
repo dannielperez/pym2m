@@ -18,8 +18,12 @@ websockets = pytest.importorskip("websockets")
 from websockets.sync.server import serve  # noqa: E402
 
 from pym2m import Secret  # noqa: E402
-from pym2m.live import LiveSession, ReconnectPolicy, SocketClosed  # noqa: E402
-from pym2m.live.session import websockets_connect  # noqa: E402
+from pym2m.live import (  # noqa: E402
+    LiveSession,
+    ReconnectPolicy,
+    SocketClosed,
+    websockets_connect,
+)
 
 OPEN = "0" + json.dumps({"sid": "s", "upgrades": [], "pingInterval": 25000, "pingTimeout": 5000})
 
