@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 — 2026-10-14
+
+### Fixed
+- `pym2m.live`: the default `websockets` connector now maps the library's
+  `ConnectionClosed` (raised when the server closes or the connection drops) and
+  handshake failures to `SocketClosed`. Previously they escaped
+  `LiveSession.run` instead of triggering reconnect with backoff, because they are
+  not `OSError`s. Covered by tests against a real local WebSocket server.
+
 ## 0.2.0 — 2026-10-13
 
 ### Added

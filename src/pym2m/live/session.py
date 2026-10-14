@@ -74,18 +74,35 @@ class WebSocketLike(Protocol):
 def websockets_connect(url: str) -> WebSocketLike:
     """Default connector using the ``websockets`` package (``pip install pym2m[live]``)."""
     try:
+        from websockets.exceptions import ConnectionClosed, InvalidHandshake
         from websockets.sync.client import connect
     except ImportError as exc:  # pragma: no cover - exercised only without the extra
         raise M2MError("install pym2m[live] to use the realtime session") from exc
 
-    ws = connect(url, open_timeout=10, close_timeout=5, max_size=MAX_FRAME_BYTES, compression=None)
+    try:
+        ws = connect(
+            url, open_timeout=10, close_timeout=5, max_size=MAX_FRAME_BYTES, compression=None
+        )
+    except InvalidHandshake as exc:
+        # websockets' handshake errors are not OSErrors; surface them as a lost
+        # connection so the session backs off and retries instead of crashing.
+        raise SocketClosed(f"websocket handshake failed ({type(exc).__name__})") from None
 
     class _Adapter:
+        # ``websockets`` raises ConnectionClosed (not an OSError) when the peer
+        # closes or the connection drops. Map it to SocketClosed, which the
+        # session treats as "reconnect with backoff".
         def send(self, message: str) -> None:
-            ws.send(message)
+            try:
+                ws.send(message)
+            except ConnectionClosed:
+                raise SocketClosed("connection closed by peer") from None
 
         def recv(self, timeout: float) -> str:
-            message = ws.recv(timeout=timeout)
+            try:
+                message = ws.recv(timeout=timeout)
+            except ConnectionClosed:
+                raise SocketClosed("connection closed by peer") from None
             if isinstance(message, bytes):
                 raise LiveProtocolError("unexpected binary frame")
             return message
