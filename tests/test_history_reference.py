@@ -149,6 +149,34 @@ def test_counters(api: FakeAPI, make_client) -> None:
     assert totals.vehicle_id == 7
     assert totals.values == {"dev_dist": 52000.0, "dev_ign": 7200.0}
     assert totals.units["distance"] == "meter"
+    assert totals.distance_m == 52000.0
+    assert totals.ignition_s == 7200.0
+
+
+def _totals(units: dict, **values: float):
+    from pym2m.models import CounterTotals
+
+    return CounterTotals.from_api({"vid": 7, **values}, units=units)
+
+
+@pytest.mark.parametrize(
+    ("units", "expected_m"),
+    [
+        ({"distance": "kilometer"}, 28_000.0),  # documented dimension-keyed shape
+        ({"dev_dist": "km"}, 28_000.0),  # counter-keyed shape
+        ({"distance": "mile"}, 28 * 1609.344),
+        ({}, 28.0),  # nothing reported: the requested metres
+        ({"distance": "furlong"}, None),  # unknown unit: never guessed
+    ],
+)
+def test_counter_distance_is_normalised_to_metres(units, expected_m) -> None:
+    assert _totals(units, dev_dist=28).distance_m == expected_m
+
+
+def test_counter_ignition_is_normalised_to_seconds() -> None:
+    assert _totals({"time": "hour"}, dev_ign=1.5).ignition_s == 5400.0
+    assert _totals({"time": "fortnight"}, dev_ign=1).ignition_s is None
+    assert _totals({}, dev_dist=1).ignition_s is None  # counter absent
 
 
 def test_counters_bad_shape(api: FakeAPI, make_client) -> None:
