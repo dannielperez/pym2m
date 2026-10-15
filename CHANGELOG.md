@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.2 — 2026-10-15
+
+### Added
+- `CounterTotals.distance_m` / `ignition_s` / `value_in(key, dimension=...)`:
+  counter values normalised to metres and seconds. Units are resolved from
+  either the documented dimension-keyed shape (`{"distance": "meter"}`) or a
+  counter-keyed one (`{"dev_dist": "km"}`), and kilometres, miles, minutes and
+  hours are converted. A missing unit means the requested one; an unrecognised
+  unit gives `None`, never a guess. Callers that read `values["dev_dist"]`
+  directly could previously mistake kilometres for metres.
+
 ## 0.2.1 — 2026-10-14
 
 ### Fixed

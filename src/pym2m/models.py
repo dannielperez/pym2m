@@ -461,6 +461,13 @@ class CounterTotals:
 
     ``values`` holds every numeric counter returned, such as ``dev_dist`` (device
     odometer distance) and ``dev_ign`` (ignition time), in ``units``.
+
+    ``units`` is passed through as the server reported it. The documented shape
+    keys units by dimension (``{"distance": "meter", "time": "second"}``); some
+    deployments key them by counter name. :attr:`distance_m` and
+    :attr:`ignition_s` resolve either shape, convert known units, fall back to
+    the units pym2m requested when none are reported, and return ``None`` for a
+    unit they do not recognise, never a guessed value.
     """
 
     vehicle_id: int | None
@@ -486,6 +493,60 @@ class CounterTotals:
             units=dict(units),
             raw=dict(item),
         )
+
+    def value_in(self, key: str, *, dimension: str) -> float | None:
+        """``values[key]`` converted to metres (``distance``) or seconds (``time``)."""
+        value = self.values.get(key)
+        table = _UNIT_FACTORS.get(dimension)
+        if value is None or table is None:
+            return None
+        reported = self.units.get(key) or self.units.get(dimension)
+        unit = (str(reported) if reported else _REQUESTED_UNITS[dimension]).strip().lower()
+        factor = table.get(unit)
+        return None if factor is None else value * factor
+
+    @property
+    def distance_m(self) -> float | None:
+        """Device odometer distance (``dev_dist``) in metres, or ``None``."""
+        return self.value_in("dev_dist", dimension="distance")
+
+    @property
+    def ignition_s(self) -> float | None:
+        """Ignition-on time (``dev_ign``) in seconds, or ``None``."""
+        return self.value_in("dev_ign", dimension="time")
+
+
+#: What ``M2MClient.counters`` asks for (``COUNTER_UNITS``).
+_REQUESTED_UNITS = {"distance": "meter", "time": "second"}
+_UNIT_FACTORS: dict[str, dict[str, float]] = {
+    "distance": {
+        "meter": 1.0,
+        "meters": 1.0,
+        "metre": 1.0,
+        "metres": 1.0,
+        "m": 1.0,
+        "kilometer": 1000.0,
+        "kilometers": 1000.0,
+        "kilometre": 1000.0,
+        "kilometres": 1000.0,
+        "km": 1000.0,
+        "mile": 1609.344,
+        "miles": 1609.344,
+        "mi": 1609.344,
+    },
+    "time": {
+        "second": 1.0,
+        "seconds": 1.0,
+        "sec": 1.0,
+        "s": 1.0,
+        "minute": 60.0,
+        "minutes": 60.0,
+        "min": 60.0,
+        "hour": 3600.0,
+        "hours": 3600.0,
+        "h": 3600.0,
+    },
+}
 
 
 @dataclass(frozen=True, slots=True)
