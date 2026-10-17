@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 from pym2m.normalize import format_api_datetime
 
-_FIELD_RE = re.compile(r"^[A-Za-z0-9_$.:*\-]+$")
+_FIELD_RE = re.compile(r"[A-Za-z0-9_$.*\-]+(?::[A-Za-z0-9_$.*\-]+(?:[ +][A-Za-z0-9_$.*\-]+)*)?")
 _SEARCH_KEY_RE = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_$]+)*$")
 _FORBIDDEN_PARAM_NAMES = frozenset({"auth", "authenticate", "token"})
 MAX_IDS_PER_REQUEST = 500
@@ -33,12 +33,12 @@ def id_list(values: Iterable[int], *, name: str = "ids") -> str:
 
 
 def field_list(fields: Iterable[str], *, name: str = "fields") -> str:
-    """Comma-join field selectors such as ``lat``, ``device:latest.loc`` or ``$basic``."""
+    """Comma-join fields, including nested ``device:latest.loc connection``."""
     items = list(fields)
     if not items:
         raise ValueError(f"{name} must not be empty")
     for item in items:
-        if not isinstance(item, str) or not _FIELD_RE.match(item):
+        if not isinstance(item, str) or not _FIELD_RE.fullmatch(item):
             raise ValueError(f"invalid {name} entry: {item!r}")
     return ",".join(items)
 

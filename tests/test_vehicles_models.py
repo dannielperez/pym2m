@@ -64,12 +64,26 @@ def test_list_vehicles_parses_identity_and_latest_location(api: FakeAPI, make_cl
 
 
 def test_latest_locations_requests_small_select(api: FakeAPI, make_client) -> None:
-    api.add("GET", VEHICLES, page([vehicle_payload(1), vehicle_payload(2, imei=350000000000002)]))
+    def provider_select(request):
+        # Pegasus keeps the last projection for a repeated resource selector.
+        selectors = request.url.params["select"].split(",")
+        device_fields = [s.split(":", 1)[1] for s in selectors if s.startswith("device:")][-1]
+        rows = [vehicle_payload(1), vehicle_payload(2, imei=350000000000002)]
+        if "latest.loc" not in device_fields.split():
+            for row in rows:
+                row["device"].pop("latest")
+        return page(rows)
+
+    api.add("GET", VEHICLES, provider_select)
     result = make_client().latest_locations([1, 2, 2])
+    assert all(
+        v.latest_location is not None and v.latest_location.fix.is_usable for v in result.items
+    )
+    assert all(v.connection is not None for v in result.items)
     assert [v.id for v in result.items] == [1, 2]
     params = api.requests[0].url.params
     assert params["ids"] == "1,2"
-    assert params["select"] == "id,name,device:latest.loc,device:connection"
+    assert params["select"] == "id,name,device:latest.loc connection"
 
 
 def test_pagination_walks_all_pages(api: FakeAPI, make_client) -> None:
@@ -293,3 +307,26 @@ def test_live_url_validation() -> None:
         with pytest.raises(UnsafeURLError):
             validate_live_url(bad)
     assert validate_live_url("https://live.example.test", allowed_host_suffixes=("example.test",))
+
+
+@pytest.mark.parametrize(
+    "selector", ["device:latest.loc connection", "device:latest.vcounters+latest.counters"]
+)
+def test_nested_resource_field_selection(selector):
+    assert field_list(["id", selector]) == "id," + selector
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        "lat lon",
+        "device:latest.loc&auth=x",
+        "device:latest.loc\n",
+        "device:latest.loc  connection",
+        "device:latest.loc+",
+        "device:latest.loc\tconnection",
+    ],
+)
+def test_nested_resource_field_selection_rejects_invalid_syntax(selector):
+    with pytest.raises(ValueError):
+        field_list([selector])

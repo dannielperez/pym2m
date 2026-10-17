@@ -36,7 +36,7 @@ DEFAULT_PAGE_SIZE = 200
 MAX_PAGE_SIZE = 1000
 MAX_DEVICE_PAGE_SIZE = 500
 MAX_HISTORY_ENTITIES = 50
-LATEST_LOCATION_SELECT = ("id", "name", "device:latest.loc", "device:connection")
+LATEST_LOCATION_SELECT = ("id", "name", "device:latest.loc connection")
 # Documented master fields needed for a normalized TelemetryEvent.
 RAWDATA_FIELDS = (
     "id",

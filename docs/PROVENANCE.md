@@ -28,7 +28,7 @@ invented. No customer data, credentials or private hostnames are included.
 |---|---|---|---|
 | Login / scoped token use (`Authenticate` header) | public docs | yes | **no** |
 | API root / `live_url` | public docs | yes | **no** |
-| Vehicles, devices, latest location (`select`) | public docs | yes | **no** |
+| Vehicles, devices, latest location (`select`) | public docs | yes | Vehicles/latest-location projection verified 2026-10-17; devices endpoint not tested |
 | Rawdata history | public docs | yes | **no** |
 | Trips (`/trips`) | public docs (response shape varies by `fields`) | yes | **no** |
 | Counters | public docs | yes | **no** |
@@ -45,3 +45,13 @@ made public, its full git history was scanned: it contains no vendor documents,
 no confidential text, no credentials and no customer data.
 The Apache-2.0 license covers this code only. It grants nothing over any vendor
 documentation, trademarks or services.
+
+## Latest-location projection correction (2026-10-17)
+
+An authorized bounded live check confirmed that repeating `device:` in comma-separated
+selectors returns only the final device projection. Use the documented combined form
+`device:latest.loc connection` to retrieve both location and connection state.
+The previous form returned HTTP 200 but omitted `device.latest`, silently producing
+no normalized positions. A synthetic regression models this projection behavior.
+No customer payload, identifier, hostname, coordinate, or credential is included here.
+Reference: https://pegasus.digitalcomtech.com/docs/get-data#select
