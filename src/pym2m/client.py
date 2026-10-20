@@ -36,6 +36,7 @@ DEFAULT_PAGE_SIZE = 200
 MAX_PAGE_SIZE = 1000
 MAX_DEVICE_PAGE_SIZE = 500
 MAX_HISTORY_ENTITIES = 50
+MAX_RAWDATA_SYNC_ENTITIES = 25
 LATEST_LOCATION_SELECT = ("id", "name", "device:latest.loc connection")
 # Documented master fields needed for a normalized TelemetryEvent.
 RAWDATA_FIELDS = (
@@ -215,17 +216,26 @@ class M2MClient:
         """Historical events for vehicle/asset ids in ``[start, end]``, oldest first.
 
         The window is capped at ``max_history_window`` and the entity count at
-        ``MAX_HISTORY_ENTITIES``: rawdata is rate limited per user and globally.
+        ``MAX_HISTORY_ENTITIES`` per call. Synchronous requests contain at most
+        25 vehicles; larger accepted calls are split and sorted together. Rawdata
+        is rate limited per user and globally.
         """
         params = self._history_params(entities, start, end, name="entities")
         params["fields"] = field_list(fields)
-        body = self._transport.get("rawdata", params)
-        if not isinstance(body, Mapping) or not isinstance(body.get("events"), list):
-            raise UnsupportedResponseError(
-                "rawdata did not return an 'events' list (large queries can be answered "
-                "with an asynchronous job, which pym2m does not follow); narrow the window"
-            )
-        events = [TelemetryEvent.from_fields(e, source=source) for e in body["events"]]
+        ids = params["entities"].split(",")
+        events: list[TelemetryEvent] = []
+        for offset in range(0, len(ids), MAX_RAWDATA_SYNC_ENTITIES):
+            chunk = {
+                **params,
+                "entities": ",".join(ids[offset : offset + MAX_RAWDATA_SYNC_ENTITIES]),
+            }
+            body = self._transport.get("rawdata", chunk)
+            if not isinstance(body, Mapping) or not isinstance(body.get("events"), list):
+                raise UnsupportedResponseError(
+                    "rawdata did not return an 'events' list (large queries can be answered "
+                    "with an asynchronous job, which pym2m does not follow); narrow the window"
+                )
+            events.extend(TelemetryEvent.from_fields(e, source=source) for e in body["events"])
         epoch = datetime.min.replace(tzinfo=UTC)
         return sorted(events, key=lambda e: (e.event_time or epoch, e.event_id or 0))
 

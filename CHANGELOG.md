@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.4 — unreleased
+
+### Fixed
+- Split rawdata calls into synchronous requests of at most 25 vehicles. The live
+  provider rejects larger synchronous batches with `non_async_many_vehicles`,
+  even when the SDK's existing 50-entity call limit is respected. Keep the public
+  call limit, selected fields, event source and globally sorted results unchanged.
+  A failed or unsupported later batch raises instead of returning partial history.
+
 ## 0.2.2 — 2026-10-15
 
 ### Added
