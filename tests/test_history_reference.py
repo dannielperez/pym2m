@@ -288,3 +288,43 @@ def test_group_without_id_raises() -> None:
 
     with pytest.raises(ResponseFormatError):
         Group.from_api({"name": "x"})
+
+
+@pytest.mark.parametrize("count", [25, 26, 50])
+def test_rawdata_splits_synchronous_vehicle_limit(api: FakeAPI, make_client, count) -> None:
+    def bounded(request):
+        ids = request.url.params["entities"].split(",")
+        if len(ids) > 25:
+            return json_response(400, {"reason": "non_async_many_vehicles", "limit": 25})
+        first = int(ids[0])
+        return json_response(200, {"events": [raw_event(first, 10 if first == 1 else 5)]})
+
+    api.add("GET", "/v2/api/rawdata", bounded)
+    events = make_client().rawdata(
+        (i for i in range(1, count + 1)),
+        START,
+        END,
+        fields=(f for f in ["id", "vid", "event_time"]),
+        source=EventSource.REST_RECOVERY,
+    )
+    batches = [r.url.params["entities"].split(",") for r in api.requests]
+    assert [int(i) for batch in batches for i in batch] == list(range(1, count + 1))
+    assert all(len(batch) <= 25 for batch in batches)
+    assert len(batches) == (count + 24) // 25
+    assert all(r.url.params["fields"] == "id,vid,event_time" for r in api.requests)
+    assert all(e.source is EventSource.REST_RECOVERY for e in events)
+    assert [e.event_id for e in events] == ([1] if count == 25 else [26, 1])
+
+
+def test_rawdata_does_not_return_partial_results_when_later_batch_is_async(
+    api: FakeAPI, make_client
+) -> None:
+    api.add(
+        "GET",
+        "/v2/api/rawdata",
+        json_response(200, {"events": [raw_event(1, 1)]}),
+        json_response(200, {"job": 123}),
+    )
+    with pytest.raises(UnsupportedResponseError):
+        make_client().rawdata(range(1, 27), START, END)
+    assert len(api.requests) == 2
