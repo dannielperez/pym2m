@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.5 — unreleased
+
+### Fixed
+- Bound Forwarder predecoded payloads and nesting; reject non-JSON values and
+  events without positive stable identifiers. Report duplicate counts and retain
+  nested event identifiers on rejection. Validate retry acknowledgments against
+  parsed event IDs. Authentication and durable acceptance remain receiver duties.
+
 ## 0.2.4 — unreleased
 
 ### Fixed
